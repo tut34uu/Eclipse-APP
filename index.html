@@ -127,7 +127,7 @@ nav a.on svg{stroke:var(--ink)}.foot a{align-items:center;cursor:pointer}
 .bay{height:auto;min-height:106px;position:relative}.bay .bill{font-weight:600;color:var(--ink);margin-top:5px}.bay .actions{display:flex;gap:5px;margin-top:7px}.bay .actions button{font:inherit;font-size:10px;padding:4px 7px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink);cursor:pointer}.bay .actions button:first-child{background:var(--green);color:#fff;border-color:var(--green)}
 .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}.metric{padding:13px 15px}.metric .v{font-size:19px;font-weight:600;margin-top:5px}.metric p{font-size:10.5px;color:var(--mute);margin-top:2px}@media(max-width:720px){.metrics{grid-template-columns:1fr 1fr}.quickbar{display:grid;grid-template-columns:1fr 1fr}}
 .dlg .choice{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.dlg .choice button{margin:0}.session-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px}.session-meta div{padding:9px;background:var(--bg);border-radius:7px}.session-meta span{display:block;font-size:10px;color:var(--mute)}.session-meta b{font-size:14px}
-</style>
+<style>.bay-total{display:block;color:var(--mute);font-size:11px;margin-top:3px}.bay.on .bay-total{color:var(--text)}</style></style>
 
 <style id="modern-professional-overrides">
 /* ===== PsTally Modern Professional UI ===== */
@@ -232,16 +232,15 @@ var NAV=[['Today',[['Dashboard','grid'],['Reports','file']]],['Operations',[['Sh
 var D={today:{l:"Today's revenue",s:10,paid:'10 paid · 0 unpaid',cash:1360,mp:550,dn:[['d','40%','vs yesterday same time'],['d','54%','vs 7-day avg']]},yest:{l:"Yesterday's revenue",rev:4300,s:27,paid:'27 paid · 0 unpaid',co:600,cash:2900,mp:1400,dn:[['d','45%','vs Saturday'],['u','3%','vs 7-day avg']],pace:'Closed at <b>Ksh 4,300</b> · 12h open'},week:{l:"This week's revenue",rev:27200,s:171,paid:'169 paid · 2 unpaid',co:1800,cash:17100,mp:10100,dn:[['u','8%','vs previous 7 days']],pace:'Best day <b>Saturday · Ksh 7,800</b>'}};
 var V=[0,0,0,0,0,0,0];
 var st={per:'today',dayKey:localDateKey(),rate:0,lounge:'Demo Lounge',rev:0,sess:0,cash:0,mp:0,co:0,cop:0,bays:[{s:'op',name:'Bay 1'},{s:'op',name:'Bay 2'},{s:'op',name:'Bay 3'},{s:'op',name:'Bay 4'},{s:'op',name:'Bay 5'},{s:'op',name:'Bay 6'}],fl:[]};
-var GAMES=['FC 26','Call of Duty','GTA Online','Mortal Kombat 1','Tekken 8'];
 function bayName(i){var b=st.bays[i]||{};return b.name||'Bay '+(i+1)}
 function localDateKey(d){d=d||new Date();var y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day}
 function displayDate(d){d=d||new Date();return d.toLocaleDateString([], {weekday:'long',year:'numeric',month:'long',day:'numeric'})}
 function rollToToday(){var k=localDateKey();if(st.dayKey!==k){st.dayKey=k;save();}}
 function sessionDate(s){if(!s)return '';if(s.paymentDateTime){var d=new Date(s.paymentDateTime);if(!isNaN(d))return localDateKey(d)}return s.date||''}
-function periodStart(key){var n=new Date();n.setHours(0,0,0,0);if(key=='today')return n;if(key=='yest'){n.setDate(n.getDate()-1);return n}var day=n.getDay(),diff=day==0?-6:1-day;n.setDate(n.getDate()+diff);return n}
-function periodEnd(key){var d=periodStart(key),e=new Date(d);e.setDate(e.getDate()+1+(key=='week'?6:0));return e}
+function periodStart(key){var n=new Date();n.setHours(0,0,0,0);if(key=='today')return n;if(key=='yest'){n.setDate(n.getDate()-1);return n}var day=n.getDay();var diff=day==0?-6:1-day;n.setDate(n.getDate()+diff);return n}
+function periodEnd(key){var d=periodStart(key);if(key=='today'){var e=new Date(d);e.setDate(e.getDate()+1);return e}if(key=='yest'){var e=new Date(d);e.setDate(e.getDate()+1);return e}var e=new Date(d);e.setDate(e.getDate()+7);return e}
 function periodSessions(key){var a=DB.sessions||[],stt=periodStart(key),end=periodEnd(key);return a.filter(function(s){var k=sessionDate(s);if(!k)return false;var d=new Date(k+'T00:00:00');return d>=stt&&d<end})}
-function revenueStats(key){var rows=periodSessions(key),rev=0,cash=0,mp=0,co=0,credit=0;rows.forEach(function(r){var a=+r.amount||0;rev+=a;if(r.payment=='Cash')cash+=a;else if(r.payment=='M-Pesa')mp+=a;else if(r.payment=='Coop Till')co+=a;else if(r.payment=='Credit')credit+=a});return {rows:rows,rev:rev,s:rows.length,cash:cash,mp:mp,co:co,credit:credit,paid:rows.length+' paid · 0 unpaid'}}
+function revenueStats(key){var rows=periodSessions(key),rev=0,cash=0,mp=0,co=0,paid=0;rows.forEach(function(r){var a=+r.amount||0;rev+=a;paid++;if(r.payment=='Cash')cash+=a;else if(r.payment=='M-Pesa')mp+=a;else if(r.payment=='Coop Till')co+=a});return {rows:rows,rev:rev,s:paid,cash:cash,mp:mp,co:co,paid:paid+' paid · 0 unpaid'}}
 function lastSevenDays(){var out=[],n=new Date();n.setHours(0,0,0,0);for(var i=6;i>=0;i--){var d=new Date(n);d.setDate(n.getDate()-i);var k=localDateKey(d),sum=0;(DB.sessions||[]).forEach(function(s){if(sessionDate(s)==k)sum+=+s.amount||0});out.push(sum)}return out}
 function esc(v){return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\"/g,'&quot;').replace(/'/g,'&#39;')}
 function dur(t){t=Math.max(0,Math.floor(t||0));var m=Math.floor(t/60);return m<60?m+'m':Math.floor(m/60)+'h '+String(m%60).padStart(2,'0')+'m'}
@@ -253,10 +252,20 @@ function cop(){return DB.cashouts.filter(function(r){return r.status=='Pending'}
 function nav(){$('nav').innerHTML=NAV.map(function(g){return '<h6>'+g[0]+'</h6>'+g[1].map(function(i){var k=KEY[i[0]],b=k=='shifts'?DB.shifts.filter(function(r){return r.status=='Open'}).length:k=='cashouts'?cop():0;return '<a tabindex="0" data-pg="'+k+'" class="'+(k==cur?'on':'')+'">'+svg(i[1])+i[0]+(b?'<b>'+b+'</b>':'')+'</a>'}).join('')}).join('');
 $('foot').innerHTML=svgl('Help & Guides','help','data-t="Guides are part of the full app"')+svgl('Settings','gear','data-pg="settings"')+svgl('Sign out','out','data-out')}
 function svgl(n,i,a){return '<a tabindex="0" '+a+'>'+svg(i)+n+'</a>'}
-function stats(){var p=st.per||'today',r=revenueStats(p),today=revenueStats('today');$('debt').textContent=f(DB.debts.filter(function(x){return x.status=='Unpaid'}).reduce(function(a,x){return a+(+x.amount||0)},0));var labels={today:'Today',yest:'Yesterday',week:'This Week'};$('rl').textContent=labels[p]||'Today';$('rv').textContent=f(r.rev);$('ss').textContent=r.s;$('sp').textContent=r.paid;$('co').textContent=f(r.co);$('cp').innerHTML=p=='today'&&cop()?'<a style="color:var(--warn);cursor:pointer" data-cash>'+cop()+' to review →</a>':'';$('cash').textContent=f(r.cash);$('mp').textContent=f(r.mp);var change=p=='today'?today.rev:0;$('dn').innerHTML='<span class="dn">'+(r.s?'↑ ':'↓ ')+' '+r.s+' sessions <em>'+((r.s||0)+' recorded')+'</em></span>';$('pace').innerHTML=p=='today'?'On pace for ~ <b>Ksh '+f(Math.max(0,Math.round(change*1.86/50)*50))+'</b> · '+remainingToday()+' remaining today':'Revenue from '+labels[p].toLowerCase()+' · <b>Ksh '+f(r.rev)+'</b>';V=lastSevenDays();var tot=V.reduce(function(a,b){return a+b},0);$('avg').textContent=f(Math.round(tot/7));$('bars').innerHTML=V.map(function(v,i){var sel=p=='week'||(p=='yest'&&i==5)||(p=='today'&&i==6);return '<div class="'+(sel?'sel ':'')+(i==6?'today':'')+'" data-v="'+(v/1000).toFixed(1)+'k" style="height:'+Math.max(8,v/78)+'%" title="Ksh '+f(v)+'"></div>'}).join('')}
+function stats(){var p=st.per||'today',x=revenueStats(p),labels={today:"Today's revenue",yest:"Yesterday's revenue",week:"This week's revenue"};$('debt').textContent=f(DB.debts.filter(function(r){return r.status=='Unpaid'}).reduce(function(a,r){return a+(+r.amount||0)},0));$('rl').textContent=labels[p]||labels.today;$('rv').textContent=f(x.rev);$('ss').textContent=x.s;$('sp').textContent=x.paid;$('co').textContent=f(x.co);$('cp').innerHTML=p=='today'&&cop()?'<a style="color:var(--warn);cursor:pointer" data-cash>'+cop()+' to review →</a>':'';$('cash').textContent=f(x.cash);$('mp').textContent=f(x.mp);var rows=x.rows;var prevStart=new Date(periodStart(p));prevStart.setDate(prevStart.getDate()-(p=='week'?7:1));var prevEnd=new Date(periodStart(p));var prev=0;rows.forEach(function(){});(DB.sessions||[]).forEach(function(r){var k=sessionDate(r);if(k){var d=new Date(k+'T00:00:00');if(d>=prevStart&&d<prevEnd)prev+=+r.amount||0}});var pct=prev?Math.round((x.rev-prev)/prev*100):0;$('dn').innerHTML='<span class="dn '+(pct<0?'':'up')+'" style="'+(pct>=0?'color:var(--green)':'')+'">'+(pct>=0?'↑ ':'↓ ')+Math.abs(pct)+'% <em>vs previous period</em></span>';$('pace').innerHTML=p=='today'?'On pace for ~ <b>Ksh '+f(Math.max(0,Math.round(x.rev*1.86/50)*50))+'</b> · '+remainingToday()+' remaining in 24h day':(p=='yest'?'Completed yesterday · <b>Ksh '+f(x.rev)+'</b>':'This week · <b>Ksh '+f(x.rev)+'</b>');V.splice(0,V.length);lastSevenDays().forEach(function(v){V.push(v)});$('avg').textContent=f(Math.round(V.reduce(function(a,b){return a+b},0)/7));$('bars').innerHTML=V.map(function(v,i){var sel=(p=='week'&&i==6)||(p=='yest'&&i==5)||(p=='today'&&i==6);return '<div class="'+(sel?'sel ':'')+(i==6?'today':'')+'" data-v="'+(v/1000).toFixed(1)+'k" style="height:'+Math.max(8,v/78)+'%" title="Ksh '+f(v)+'"></div>'}).join('')}
 function billFor(b){return Math.max(st.rate,Math.ceil(elapsedSec(b)/1800)*st.rate)}
-function remainingToday(){var n=new Date(),end=new Date(n);end.setHours(24,0,0,0);var sec=Math.max(0,Math.floor((end-n)/1000)),h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60);return h+'h '+String(m).padStart(2,'0')+'m'}
-function bays(){var pl=0;$('bays').innerHTML=st.bays.map(function(b,i){var n=bayName(i),a=' tabindex="0" role="button" data-b="'+i+'"';if(b.s=='on'){pl++;var elapsed=elapsedSec(b),amt=billFor(b);return '<div class="bay on"'+a+'><b>'+n+'</b>'+b.g+'<small class="tm">'+dur(elapsed)+'</small><div class="bill">Ksh '+f(amt)+' accrued</div><div class="actions"><button data-bill="'+i+'">End & Bill</button><button data-time="'+i+'">+30 min</button></div></div>'}if(b.s=='un')return '<div class="bay un"'+a+'><b>'+n+'<i>UNBILLED</i></b><p>'+(b.det?b.det+' detected':'Console active')+'</p><div class="actions"><button data-bill="'+i+'">Log Session</button></div></div>';return '<div class="bay op"'+a+'><b>'+n+'</b>Open<div class="actions"><button data-start="'+i+'">Start Session</button></div></div>'}).join('');$('playing').textContent=pl+' playing'+(live?' · live':'')}
+function remainingToday(){var n=new Date();var start=new Date(n);start.setHours(0,0,0,0);var end=new Date(start);end.setDate(end.getDate()+1);var sec=Math.max(0,Math.floor((end-n)/1000));var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;return h+'h '+String(m).padStart(2,'0')+'m '+String(s).padStart(2,'0')+'s'}
+function bayTotalMinutes(i){
+  var total=0;
+  (DB.sessions||[]).forEach(function(r){
+    var rn=String(r.bay||'').trim();
+    if(rn===bayName(i)) total+=Math.max(0,+r.minutes||0);
+  });
+  var b=st.bays[i];
+  if(b&&b.s=='on') total+=Math.floor(elapsedSec(b)/60);
+  return total;
+}
+function bays(){var pl=0;$('bays').innerHTML=st.bays.map(function(b,i){var n=bayName(i),a=' tabindex="0" role="button" data-b="'+i+'"',total=bayTotalMinutes(i);if(b.s=='on'){pl++;var elapsed=elapsedSec(b),amt=billFor(b);return '<div class="bay on"'+a+'><b>'+n+'</b>'+b.g+'<small class="tm">'+dur(elapsed)+'</small><small class="bay-total">Total played: '+dur(total*60)+'</small><div class="bill">Ksh '+f(amt)+' accrued</div><div class="actions"><button data-bill="'+i+'">End & Bill</button><button data-time="'+i+'">+30 min</button></div></div>'}if(b.s=='un')return '<div class="bay un"'+a+'><b>'+n+'<i>UNBILLED</i></b><p>'+(b.det?b.det+' detected':'Console active')+'</p><small class="bay-total">Total played: '+dur(total*60)+'</small><div class="actions"><button data-bill="'+i+'">Log Session</button></div></div>';return '<div class="bay op"'+a+'><b>'+n+'</b>Open<small class="bay-total">Total played: '+dur(total*60)+'</small><div class="actions"><button data-start="'+i+'">Start Session</button></div></div>'}).join('');$('playing').textContent=pl+' playing'+(live?' · live':'')}
 function attn(){var un=[],on=0,bl=0;st.bays.forEach(function(b,i){if(b.s!='op')on++;if(b.s=='on')bl++;if(b.s=='un')un.push(i)});var rows=[];
 if(un.length)rows.push(['<span>'+un.length+' PS5 on with no session logged</span>','<a tabindex="0" data-inv>Investigate →</a>']);
 if(st.fl.length)rows.push([st.fl.length+' session'+(st.fl.length>1?'s':'')+' flagged as unusual','<a tabindex="0" data-fl>Review →</a>']);
@@ -270,26 +279,46 @@ function dlg(h){$('dlg').innerHTML=h;$('mask').classList.add('show')}function cl
 function sessionHistory(){return DB.sessions||[]}
 async function addSession(i,b,amt,pay,customer){if(!DB.sessions)DB.sessions=[];var now=new Date(),tm=now.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),game=b.g||b.det||'Unknown',mins=Math.max(1,Math.ceil(elapsedSec(b)/60)),cn=customer||'Walk-in';DB.sessions.unshift({date:localDateKey(now),time:tm,paymentTime:tm,paymentDateTime:now.toISOString(),bay:bayName(i),customer:cn,game:game,minutes:mins,amount:amt,payment:pay});if(currentUser){var br=bayIds[i]||null;var ins=await sb.from('transactions').insert({bay_id:br,bay_name_snapshot:bayName(i),customer_name:cn,game:game,duration_minutes:mins,amount:amt,payment_method:pay,paid_at:now.toISOString(),created_by:currentUser.id});if(ins.error)toast('Saved locally; cloud sync failed');}}
 function endDialog(i){var b=st.bays[i],mins=Math.max(1,Math.ceil(elapsedSec(b)/60)),amt=billFor(b);dlg('<h3>End '+(i+1)+' · '+(b.g||'Session')+'</h3><p>Edit the duration and amount before recording the payment.</p><label>Duration (minutes)<input id="duration" type="number" min="1" step="1" value="'+mins+'"></label><label>Amount (Ksh)<input id="sessionAmount" type="number" min="0" step="1" value="'+amt+'"></label><label>Customer name (optional)<input id="customer" placeholder="Walk-in"></label><div class="choice"><button data-pay="Cash" data-end2="'+i+'">Cash</button><button data-pay="M-Pesa" data-end2="'+i+'">M-Pesa</button><button data-pay="Credit" data-end2="'+i+'">Credit</button><button data-pay="Coop Till" data-end2="'+i+'">Coop Till</button></div><button class="cx" data-x>Cancel</button>')}
-function pick(i){var b=st.bays[i],n=bayName(i);if(b.s=='on'){endDialog(i);return}var savedGames=(DB.games||[]).filter(function(g){return g&&g.active!==false&&g.title});var names=savedGames.map(function(g){return g.title});if(b.det&&names.indexOf(b.det)<0)names.unshift(b.det);if(!names.length)names=['No games saved'];dlg('<h3>'+(b.s=='un'?'Log session for '+n:'Start session on '+n)+'</h3><p>Pick the game being played</p>'+names.map(function(g){return '<button data-go="'+i+'" data-g="'+String(g).replace(/"/g,'&quot;')+'">'+String(g).replace(/</g,'&lt;')+'</button>'}).join('')+'<button class="cx" data-x>Cancel</button>')}
+async function pick(i){
+  var b=st.bays[i],n=bayName(i);
+  if(b.s=='on'){endDialog(i);return}
+  var savedGames=[];
+  if(currentUser){
+    try{
+      var gr=await sb.from('games').select('id,title,platform,price_30_min,active').eq('active',true).order('created_at',{ascending:true});
+      if(gr.error)throw gr.error;
+      savedGames=(gr.data||[]).filter(function(g){return g&&g.title}).map(function(g){return {id:g.id,title:g.title,platform:g.platform,price:+g.price_30_min||0,active:g.active!==false}});
+      DB.games=savedGames.slice();
+    }catch(e){
+      console.warn('Could not load Games from Supabase:',e);
+      savedGames=(DB.games||[]).filter(function(g){return g&&g.active!==false&&g.title});
+    }
+  }else{
+    savedGames=(DB.games||[]).filter(function(g){return g&&g.active!==false&&g.title});
+  }
+  var names=savedGames.map(function(g){return g.title});
+  if(b.det&&names.indexOf(b.det)<0)names.unshift(b.det);
+  if(!names.length)names=['No games saved'];
+  dlg('<h3>'+(b.s=='un'?'Log session for '+n:'Start session on '+n)+'</h3><p>Pick the game being played</p>'+names.map(function(g){return '<button data-go="'+i+'" data-g="'+String(g).replace(/"/g,'&quot;')+'">'+String(g).replace(/</g,'&lt;')+'</button>'}).join('')+'<button class="cx" data-x>Cancel</button>')
+}
 document.addEventListener('click',function(e){var t=e.target,q=function(s){return t.closest('['+s+']')},x;
-if(x=q('data-pg')){var target=x.dataset.pg;$('side').classList.remove('open');if(target!='dash'){requirePin(target)}else go(target);return}
+if(x=q('data-pg')){go(x.dataset.pg);$('side').classList.remove('open');return}
 if(q('data-menu')){$('side').classList.toggle('open');return}
 if(x=q('data-add')){form(x.dataset.add);return}
 if(x=q('data-save')){save1(x.dataset.save);return}
 if(x=q('data-del')){var a=x.dataset.del.split(','),dk=a[0],di=+a[1],dr=DB[dk][di];DB[dk].splice(di,1);if(currentUser&&dr&&dr.id&&CLOUD_TABLES.indexOf(dk)>=0)sb.from(dk).delete().eq('id',dr.id).then(function(r){if(r.error)console.warn(r.error)});all();go(dk);return}
 if(x=q('data-act')){var a=x.dataset.act.split(','),ak=a[0],ar=DB[ak][+a[1]];G[ak].act[+a[2]][1](ar);all();go(ak);if(currentUser&&ar&&ar.id&&CLOUD_TABLES.indexOf(ak)>=0)syncCloud();return}
-if(x=q('data-pin-submit')){var target=x.dataset.pinSubmit,pin=($('appPin')&&$('appPin').value||'').trim();if(!/^\d{4}$/.test(pin)){if($('pinMsg'))$('pinMsg').textContent='Enter exactly 4 digits.';return}(async function(){try{var r=await sb.rpc('verify_app_pin',{entered_pin:pin});if(r.error)throw r.error;if(r.data===true){pinUnlocked=true;pinBusy=false;close();go(target)}else{if($('pinMsg'))$('pinMsg').textContent='Incorrect PIN.'}}catch(e){if($('pinMsg'))$('pinMsg').textContent='PIN verification failed.';console.warn(e)}})();return}
 if(q('data-copy')){try{navigator.clipboard.writeText('PSTALLY-7K2')}catch(_){}toast('Referral code copied');return}
 if(q('data-baynames')){for(var bn=1;bn<=6;bn++){var nv=($('bn'+bn)&&$('bn'+bn).value.trim())||'Bay '+bn;st.bays[bn-1].name=nv;}DB.consoles.forEach(function(c,i){if(st.bays[i])c.bay=bayName(i)});all();if(currentUser){syncBays().then(function(){toast('Bay names saved to cloud')}).catch(function(e){console.warn(e);toast('Bay names saved locally; cloud save failed')});}else toast('Bay names saved');return}
 if(q('data-cfg')){st.lounge=$('cn').value.trim()||'Demo Lounge';st.rate=Math.max(10,+$('cr').value||100);all();toast('Settings saved');return}
 if(q('data-out')){if(live)location.href='logout';else toast('The demo has no sign-in');return}
 if(q('data-bays')){var bb={};[1,2,3,4,5,6].forEach(function(n){var v=$('ba'+n).value.trim();if(v)bb[n]=v});fetch('api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bays:bb})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw j;return j})}).then(function(j){cfgB=j.bays;toast('Accounts saved. Checking consoles…')}).catch(function(j){toast(j&&j.error||'Could not save')});return}
-if(q('data-reset')){if(!currentUser){toast('Sign in first to reset cloud sales');return}if(!confirm('Reset all test sales/transactions and related local totals? This cannot be undone. Bay names, games, staff, products and settings will stay.'))return;(async function(){try{var r=await sb.from('transactions').delete().not('id','is',null);if(r.error)throw r.error;DB.sessions=[];st.rev=0;st.sess=0;st.cash=0;st.mp=0;st.co=0;st.cop=0;V=[0,0,0,0,0,0,0];await sb.from('app_state').upsert({id:1,state:{st:st,DB:DB},updated_at:new Date().toISOString()},{onConflict:'id'});all();go('settings');toast('Sales data reset to zero');}catch(e){console.error(e);toast('Reset failed: '+(e.message||e))}})();return}
+if(q('data-reset')){try{localStorage.removeItem(K)}catch(_){}location.reload();return}
 if(x=q('data-quick')){var z=x.dataset.quick;if(z=='start'){var oi=st.bays.findIndex(function(b){return b.s=='op'||b.s=='un'});if(oi<0){toast('All bays are currently occupied');}else pick(oi);return}if(z=='sale'){go('income');setTimeout(function(){form('income')},0);return}if(z=='expense'){go('expenses');setTimeout(function(){form('expenses')},0);return}if(z=='tournament'){go('tournaments');setTimeout(function(){form('tournaments')},0);return}if(z=='history'){go('history');return}}
 if(x=q('data-p')){st.per=x.dataset.p;[].forEach.call($('tabs').children,function(c){c.classList.toggle('on',c==x)});stats();return}
 if(x=q('data-b')){pick(+x.dataset.b);return}
 if(q('data-inv')){pick(st.bays.findIndex(function(b){return b.s=='un'}));return}
-if(x=q('data-go')){var i=+x.dataset.go;if(st.bays[i].s=='op')st.sess++;st.bays[i]={s:'on',name:bayName(i),g:x.dataset.g,t:0,startedAt:new Date().toISOString(),extraSeconds:0};close();all();toast(bayName(i)+' is now billed · '+x.dataset.g);return}
+if(x=q('data-go')){var i=+x.dataset.go;if(st.bays[i].s=='op')st.sess++;st.bays[i]={s:'on',name:bayName(i),g:x.dataset.g,t:0,startedAt:new Date().toISOString(),extraSeconds:0};save();close();all();toast(bayName(i)+' is now billed · '+x.dataset.g);return}
 if(x=q('data-start')){pick(+x.dataset.start);return}
 if(x=q('data-time')){var tb=st.bays[+x.dataset.time];if(tb&&tb.s=='on'){tb.extraSeconds=(tb.extraSeconds||0)+1800;tb.t=elapsedSec(tb);save();bays();toast('30 minutes added');}return}
 if(x=q('data-bill')){var bi=+x.dataset.bill;if(st.bays[bi].s=='on')endDialog(bi);else pick(bi);return}
@@ -302,7 +331,23 @@ if(q('data-cash')){var cr=DB.cashouts.find(function(r){return r.status=='Pending
 if(q('data-ok')||q('data-no')){var ok=!!q('data-ok'),r=DB.cashouts.find(function(r){return r.status=='Pending'});if(r)G.cashouts.act[ok?0:1][1](r);close();all();toast(ok?'Cash out approved':'Cash out declined');return}
 if(x=q('data-t')){if(x.dataset.t)toast(x.dataset.t)}});
 document.addEventListener('keydown',function(e){if(e.key=='Escape')close();if((e.key=='Enter'||e.key==' ')&&e.target.matches('[tabindex]')){e.preventDefault();e.target.click()}});
-setInterval(function(){document.querySelectorAll('.bay.on .tm').forEach(function(el,k){var on=st.bays.filter(function(b){return b.s=='on'});if(on[k])el.textContent=dur(elapsedSec(on[k]));});if(cur=='dash'){var p=st.per,d=D[p];if(p=='today'){$('pace').innerHTML='On pace for ~ <b>Ksh '+f(Math.max(3550,Math.round(st.rev*1.86/50)*50))+'</b> · '+remainingToday()+' remaining today';}}},1000);
+setInterval(function(){
+  var active=st.bays.filter(function(b){return b.s=='on'});
+  document.querySelectorAll('.bay.on .tm').forEach(function(el,k){if(active[k])el.textContent=dur(elapsedSec(active[k]));});
+  document.querySelectorAll('.bay.on .bill').forEach(function(el,k){if(active[k])el.textContent='Ksh '+f(billFor(active[k]))+' accrued';});
+  document.querySelectorAll('#monitoring .tw tbody tr').forEach(function(row){
+    var txt=row.cells&&row.cells[0]?row.cells[0].textContent.trim():'';
+    var idx=st.bays.findIndex(function(b){return bayName(st.bays.indexOf(b))==txt});
+    if(idx>=0){
+      if(row.cells[3])row.cells[3].textContent=st.bays[idx].s=='on'?dur(elapsedSec(st.bays[idx])):'—';
+      if(row.cells[4])row.cells[4].textContent=dur(bayTotalMinutes(idx)*60);
+      if(row.cells[2])row.cells[2].textContent=st.bays[idx].g||'—';
+      if(row.cells[1])row.cells[1].innerHTML='<span class="pill '+(st.bays[idx].s=='on'?'g':st.bays[idx].s=='un'?'w':'')+'">'+(st.bays[idx].s=='on'?'Playing':st.bays[idx].s=='un'?'Unbilled':'Open')+'</span>';
+    }
+  });
+  document.querySelectorAll('.bay').forEach(function(card,k){var i=Array.prototype.indexOf.call(card.parentNode.children,card);var el=card.querySelector('.bay-total');if(el&&st.bays[i])el.textContent='Total played: '+dur(bayTotalMinutes(i)*60);});
+  if(cur=='dash'){var p=st.per;if(p=='today'){$('pace').innerHTML='On pace for ~ <b>Ksh '+f(Math.max(0,Math.round((revenueStats('today').rev||0)*1.86/50)*50))+'</b> · '+remainingToday()+' remaining in 24h day';}}
+},1000);
 setInterval(refreshDashboardDate,1000);
 var M=function(n){return 'Ksh '+f(n)},S=function(k,key){return DB[k].reduce(function(a,r){return a+(r[key]||0)},0)};
 var BAYS=['Bay 1','Bay 2','Bay 3','Bay 4','Bay 5','Bay 6'];
@@ -335,7 +380,7 @@ async function syncBays(){
   var rows=(st.bays||[]).slice(0,6).map(function(b,i){
     var id=bayIds[i]||null;
     if(!id)id=(crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2)));
-    return {id:id,name:b.name||('Bay '+(i+1)),sort_order:i+1,active:true};
+    return {id:id,name:b.name||('Bay '+(i+1)),sort_order:i+1,active:true,status:b.s||'op',game:b.g||null,started_at:b.startedAt||null,extra_seconds:Math.max(0,Math.floor(b.extraSeconds||0)),elapsed_seconds:Math.max(0,Math.floor(b.t||0))};
   });
   var r=await sb.from('bays').upsert(rows,{onConflict:'id'});
   if(r.error)throw r.error;
@@ -347,7 +392,7 @@ var bayIds=[];
 try{var sv=JSON.parse(localStorage.getItem(K)||'null');if(sv){Object.assign(st,sv.st);Object.assign(DB,sv.DB);st.per='today';hydrateBayTimers();ensureIds()}}catch(_){}
 async function loadDedicated(){
   var b=await sb.from('bays').select('*').order('sort_order');
-  if(b.data&&b.data.length){bayIds=b.data.map(function(x){return x.id});var prior=st.bays||[];st.bays=b.data.slice(0,6).map(function(x,i){return {s:(prior[i]&&prior[i].s)||'op',name:x.name||'Bay '+(i+1),g:prior[i]&&prior[i].g,t:prior[i]&&prior[i].t,startedAt:prior[i]&&prior[i].startedAt,extraSeconds:prior[i]&&prior[i].extraSeconds};});while(st.bays.length<6)st.bays.push({s:'op',name:'Bay '+(st.bays.length+1)});}
+  if(b.data&&b.data.length){bayIds=b.data.map(function(x){return x.id});var prior=st.bays||[];st.bays=b.data.slice(0,6).map(function(x,i){var pn=prior[i]&&prior[i].name;var keep=pn&&pn!=='Bay '+(i+1);var stt=x.status||'op';return {s:stt,name:keep?pn:(x.name||'Bay '+(i+1)),g:x.game||null,t:Math.max(0,Math.floor(x.elapsed_seconds||0)),startedAt:x.started_at||null,extraSeconds:Math.max(0,Math.floor(x.extra_seconds||0))};});while(st.bays.length<6)st.bays.push({s:'op',name:'Bay '+(st.bays.length+1)});}
   var qs=await Promise.all(CLOUD_TABLES.map(function(k){return sb.from(k).select('*').order('created_at',{ascending:true})}));
   if(qs[0].data)DB.games=qs[0].data.map(function(x){return {id:x.id,title:x.title,platform:x.platform,price:+x.price_30_min||0,active:x.active!==false}});
   if(qs[1].data)DB.consoles=qs[1].data.map(function(x){var bi=bayIds.indexOf(x.bay_id);return {id:x.id,name:x.name,type:x.type,bay:bi>=0?bayName(bi):(x.bay||'') ,active:x.active!==false}});
@@ -361,7 +406,7 @@ async function loadDedicated(){
   var ex=await sb.from('expenses').select('*').order('expense_date',{ascending:false});if(ex.data)DB.expenses=ex.data.map(function(x){return {id:x.id,item:x.description,amount:+x.amount||0,date:x.expense_date}});
   var co=await sb.from('cashouts').select('*').order('cashout_at',{ascending:false});if(co.data)DB.cashouts=co.data.map(function(x){return {id:x.id,who:x.who||'Staff',amount:+x.amount||0,reason:x.reason||'',status:x.status||'Pending',id:x.id}});
 }
-async function loadCloud(){if(!currentUser)return;cloudReady=false;try{var state=await sb.from('app_state').select('state').eq('id',1).maybeSingle();if(state.data&&state.data.state){Object.assign(st,state.data.state.st||{});Object.assign(DB,state.data.state.DB||{});st.per='today';hydrateBayTimers();ensureIds();}await loadDedicated();if(!bayIds.length)await syncBays();var set=await sb.from('business_settings').select('*').eq('id',1).single();if(set.data)st.lounge=set.data.business_name||st.lounge;}catch(e){console.warn('Cloud load:',e)}cloudReady=true;all();subscribeRealtime();}
+async function loadCloud(){if(!currentUser)return;cloudReady=false;try{var state=await sb.from('app_state').select('state').eq('id',1).maybeSingle();if(state.data&&state.data.state){Object.assign(st,state.data.state.st||{});Object.assign(DB,state.data.state.DB||{});st.per='today';hydrateBayTimers();ensureIds();}await loadDedicated();await syncBays();var set=await sb.from('business_settings').select('*').eq('id',1).single();if(set.data)st.lounge=set.data.business_name||st.lounge;}catch(e){console.warn('Cloud load:',e)}cloudReady=true;all();subscribeRealtime();}
 function subscribeRealtime(){if(!currentUser||window.psTallyChannel)return;window.psTallyChannel=sb.channel('pstally-live').on('postgres_changes',{event:'*',schema:'public',table:'bays'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'transactions'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'games'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'consoles'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'staff'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'shifts'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'debts'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'products'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'income'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'tournaments'},function(){refreshDedicated()}).subscribe();}
 async function refreshDedicated(){if(!currentUser||cloudBusy)return;try{await loadDedicated();localStorage.setItem(K,JSON.stringify({st:st,DB:DB}));all();if(cur!='dash')go(cur)}catch(e){console.warn('Realtime refresh:',e)}}
 
@@ -390,7 +435,7 @@ debts:{t:'Debts',s:'Customers who played on credit.',one:'debt',d:{status:'Unpai
 expenses:{t:'Expenses',s:'What you spend to keep the lounge running.',one:'expense',sum:['amount','Total spent'],c:[['item','Expense'],['amount','Amount','m'],['date','Date']],f:[['item','What was it for'],['amount','Amount (Ksh)','n'],['date','Date','d']]},
 income:{t:'Income',s:'Money earned outside gaming sessions.',one:'income entry',sum:['amount','Total earned'],c:[['source','Source'],['amount','Amount','m'],['date','Date']],f:[['source','Where it came from'],['amount','Amount (Ksh)','n'],['date','Date','d']]},
 tournaments:{t:'Tournaments',s:'Events that bring players in.',one:'tournament',c:[['name','Tournament'],['game','Game'],['fee','Entry fee','m'],['date','Date']],f:[['name','Tournament name'],['game','Game',function(){return DB.games.map(function(x){return x.title})}],['fee','Entry fee (Ksh)','n'],['date','Date','d']]},
-monitoring:{t:'Monitoring',s:'Live view of every bay and total time played.',ro:1,c:[['bay','Bay'],['status','Status'],['game','Game'],['time','Current Time'],['total','Total Played']],rows:function(){return st.bays.map(function(b,i){var total=0;(DB.sessions||[]).forEach(function(x){if(x.bay==bayName(i))total+=(+x.minutes||0)*60});if(b.s=='on')total+=elapsedSec(b);return {bay:bayName(i),status:b.s=='on'?'Playing':b.s=='un'?'Unbilled':'Open',game:b.g||'—',time:b.s=='on'?dur(elapsedSec(b)):'—',total:dur(total)}})}}};
+monitoring:{t:'Monitoring',s:'Live view of every bay. Current session time updates every second; total played is the sum of recorded sessions plus the current session.',ro:1,c:[['bay','Bay'],['status','Status'],['game','Game'],['time','Current time'],['total','Total played']],rows:function(){return st.bays.map(function(b,i){return {bay:bayName(i),status:b.s=='on'?'Playing':b.s=='un'?'Unbilled':'Open',game:b.g||'—',time:b.s=='on'?dur(elapsedSec(b)):'—',total:dur(bayTotalMinutes(i)*60)}})}}};
 var PC={Open:'g',Approved:'g',Paid:'g',Playing:'g',Pending:'w',Unpaid:'w',Unbilled:'w',Declined:'r'};
 function shiftBox(){rollToToday();$('dt').textContent=displayDate()+' · '+st.lounge;$('sh').innerHTML=DB.shifts.filter(open_).map(function(s){return '<div class="it"><div><b>'+s.staff+'</b><p>'+s.sessions+' sessions · since '+s.start+'</p></div><div class="r"><b>'+M(s.collected)+'</b><p>COLLECTED</p></div></div>'}).join('')||'<div class="it"><p>No one is on shift. Open one in Shifts.</p></div>'}
 function hd(g,add){return '<div class="ph"><div><h1>'+g.t+'</h1><p>'+g.s+'</p></div>'+(add?'<button class="btn pri" data-add="'+add+'">Add '+g.one+'</button>':'')+'</div>'}
@@ -403,10 +448,40 @@ function reports(){var rv=V.reduce(function(a,b){return a+b},0),ex=S('expenses',
 function page(k){if(k=='history')return reports();if(G[k])return table(k);if(k=='reports')return reports();
 if(k=='refer')return '<div class="ph"><div><h1>Refer &amp; Earn</h1><p>Share your code with other lounge owners.</p></div></div><div class="card cfg"><div class="lbl">Your referral code</div><div class="big"><span style="font-size:28px;font-family:\'JetBrains Mono\',monospace">PSTALLY-7K2</span></div><button class="btn pri" style="margin-top:16px" data-copy>Copy code</button></div>';
 return '<div class="ph"><div><h1>Settings</h1><p>Your lounge details, billing rate, and PS5 monitoring.</p></div></div><div class="card cfg"><label>Lounge name<input id="cn" value="'+st.lounge+'"></label><label>Rate per 30 minutes (Ksh)<input id="cr" type="number" min="10" value="'+st.rate+'"></label><button class="btn pri" style="margin-top:16px" data-cfg>Save settings</button><button class="btn" style="margin:16px 0 0 8px" data-reset>Reset demo data</button></div><div class="card cfg" style="margin-top:16px;max-width:720px"><div class="lbl">BAY NAMES</div><p style="color:var(--mute);font-size:12px;margin:6px 0 4px">Give each bay a personalized name. These names will appear on the dashboard, payment history, and monitoring.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+[1,2,3,4,5,6].map(function(n){return '<label>Bay '+n+'<input id="bn'+n+'" value="'+esc((st.bays[n-1]||{}).name||'Bay '+n)+'" placeholder="Bay '+n+'"></label>'}).join('')+'</div><button class="btn pri" style="margin-top:16px" data-baynames>Save bay names</button></div><div class="card cfg" style="margin-top:16px;max-width:520px"><div class="lbl">CO-OPERATIVE BANK M-PESA PAYBILL</div><div class="payinfo"><div class="row"><span>Paybill</span><b>400200</b></div><div class="row"><span>Account number</span><b>1176262</b></div></div></div><div class="card cfg" style="margin-top:16px;max-width:720px"><div class="lbl">PS5 GAME DETECTION</div><p style="color:var(--mute);font-size:12px;margin:6px 0 0">PsTally can read the current PSN “Now Playing” title through the local PS5 Monitor service. Keep the monitor running on the lounge PC. Each bay should use its own PSN account for reliable bay-to-console mapping.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><span class="pill '+(live?'g':'w')+'">'+(live?'Monitor connected':'Monitor not connected')+'</span><span class="pill">'+(lastP[1]||lastP[2]||lastP[3]?'Presence received':'Waiting for presence')+'</span></div><p style="color:var(--mute);font-size:11px;margin-top:12px">PSN credentials belong on the backend in <b>.env</b>; never paste NPSSO tokens into this dashboard.</p></div>'+(live?acct():'')}
-var pinUnlocked=false,pinBusy=false;
-function pinDialog(target){if(pinBusy)return;pinBusy=true;dlg('<h3>Enter 4-digit PIN</h3><p>This section is protected.</p><input id="appPin" type="password" inputmode="numeric" maxlength="4" placeholder="••••" style="text-align:center;font-size:24px;letter-spacing:8px"><p id="pinMsg" style="color:var(--mute);font-size:12px"></p><button class="pri" data-pin-submit="'+esc(target)+'">Unlock</button><button class="cx" data-x>Cancel</button>');setTimeout(function(){if($('appPin'))$('appPin').focus()},50);}
-async function requirePin(target){if(pinUnlocked){go(target);return}pinDialog(target);}
-function go(k){cur=k;var d=k=='dash';document.querySelector('.wrap').hidden=!d;$('pg').hidden=d;if(!d)$('pg').innerHTML=page(k);nav();document.querySelector('main').scrollTop=0}
+var pinUnlocked=false;
+var pinBusy=false;
+var PIN_PROTECTED={reports:1,shifts:1,monitoring:1,consoles:1,games:1,products:1,staff:1,tournaments:1,cashouts:1,debts:1,expenses:1,income:1,refer:1,settings:1,history:1};
+function pinDialog(k){
+  return new Promise(function(resolve){
+    var old=$('dlg').innerHTML;
+    dlg('<h3>🔐 Protected Area</h3><p>Enter the 4-digit PsTally PIN to continue.</p><input id=pinInput type=password inputmode=numeric maxlength=4 autocomplete=one-time-code style=font-size:28px;letter-spacing:8px;text-align:center><p id=pinErr style=display:none;color:var(--bad)>Incorrect PIN. Please try again.</p><button class=pri data-pin-ok>Unlock</button><button class=cx data-pin-cancel>Cancel</button>');
+    setTimeout(function(){var i=$('pinInput');if(i)i.focus()},50);
+    function finish(v){close();$('dlg').innerHTML=old;resolve(v)}
+    var handler=function(e){var t=e.target;if(t&&t.matches('[data-pin-cancel]')){document.removeEventListener('click',handler,true);finish(false)}if(t&&t.matches('[data-pin-ok]')){document.removeEventListener('click',handler,true);check()}if(t&&t.id=='pinInput'&&e.key=='Enter'){e.preventDefault();check()}};
+    async function check(){
+      if(pinBusy)return;
+      var v=($('pinInput')||{}).value||'';
+      if(!/^\d{4}$/.test(v)){var er=$('pinErr');if(er){er.textContent='Enter exactly 4 digits.';er.style.display='block'}return}
+      pinBusy=true;
+      try{
+        if(!currentUser)throw new Error('Please sign in first.');
+        var r=await sb.rpc('verify_app_pin',{entered_pin:v});
+        if(r.error)throw r.error;
+        if(r.data===true){pinUnlocked=true;document.removeEventListener('click',handler,true);finish(true);return}
+        var er=$('pinErr');if(er){er.textContent='Incorrect PIN. Please try again.';er.style.display='block'}
+      }catch(e){var er=$('pinErr');if(er){er.textContent='PIN verification failed. Please try again.';er.style.display='block'}console.warn('PIN verification:',e)}
+      finally{pinBusy=false}
+    }
+    document.addEventListener('click',handler,true);
+  })
+}
+async function go(k){
+  if(PIN_PROTECTED[k]&&!pinUnlocked){
+    var ok=await pinDialog(k);
+    if(!ok)return;
+  }
+  cur=k;var d=k=='dash';document.querySelector('.wrap').hidden=!d;$('pg').hidden=d;if(!d)$('pg').innerHTML=page(k);nav();document.querySelector('main').scrollTop=0
+}
 function form(k){var g=G[k];dlg('<h3>Add '+g.one+'</h3><p>'+g.t+'</p>'+g.f.map(function(x){var o=typeof x[2]=='function'?x[2]():x[2],id='f_'+x[0];return '<label>'+x[1]+(Array.isArray(o)?'<select id="'+id+'">'+o.map(function(v){return '<option>'+v+'</option>'}).join('')+'</select>':'<input id="'+id+'" type="'+(o=='n'?'number':o=='d'?'date':o=='t'?'time':'text')+'"'+(o=='n'?' min="0"':'')+'>')+'</label>'}).join('')+'<button class="pri" data-save="'+k+'">Save</button><button class="cx" data-x>Cancel</button>')}
 async function save1(k){var g=G[k],r=Object.assign({},g.d||{}),ok=1;g.f.forEach(function(x){var v=$('f_'+x[0]).value.trim();if(v==='')ok=0;r[x[0]]=x[2]=='n'?+v:v});if(!ok){toast('Fill in every field');return}r.id=crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2));if(k=='shifts')r.started_at=new Date().toISOString();DB[k].push(r);if(currentUser&&k=='expenses'){var ex=await sb.from('expenses').insert({description:r.item,amount:r.amount,expense_date:r.date||localDateKey(),created_by:currentUser.id});if(ex.error)toast('Saved locally; cloud sync failed');}if(currentUser&&k=='cashouts'){var co=await sb.from('cashouts').insert({who:r.who||'Staff',amount:r.amount,reason:r.reason||'',status:r.status||'Pending',cashout_at:new Date().toISOString(),created_by:currentUser.id});if(co.error)toast('Saved locally; cloud sync failed');}if(currentUser&&CLOUD_TABLES.indexOf(k)>=0){var cr=await sb.from(k).upsert(rowForCloud(k,r),{onConflict:'id'});if(cr.error)toast('Saved locally; cloud sync failed');}close();all();go(k);toast('Added '+g.one)}
 var live=0,pf=1,cfgB={},lastP={};
