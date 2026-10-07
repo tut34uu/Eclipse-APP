@@ -127,7 +127,7 @@ nav a.on svg{stroke:var(--ink)}.foot a{align-items:center;cursor:pointer}
 .bay{height:auto;min-height:106px;position:relative}.bay .bill{font-weight:600;color:var(--ink);margin-top:5px}.bay .actions{display:flex;gap:5px;margin-top:7px}.bay .actions button{font:inherit;font-size:10px;padding:4px 7px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--ink);cursor:pointer}.bay .actions button:first-child{background:var(--green);color:#fff;border-color:var(--green)}
 .metrics{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:16px}.metric{padding:13px 15px}.metric .v{font-size:19px;font-weight:600;margin-top:5px}.metric p{font-size:10.5px;color:var(--mute);margin-top:2px}@media(max-width:720px){.metrics{grid-template-columns:1fr 1fr}.quickbar{display:grid;grid-template-columns:1fr 1fr}}
 .dlg .choice{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}.dlg .choice button{margin:0}.session-meta{display:grid;grid-template-columns:1fr 1fr;gap:8px}.session-meta div{padding:9px;background:var(--bg);border-radius:7px}.session-meta span{display:block;font-size:10px;color:var(--mute)}.session-meta b{font-size:14px}
-</style>
+<style>.bay-total{display:block;color:var(--mute);font-size:11px;margin-top:3px}.bay.on .bay-total{color:var(--text)}</style></style>
 
 <style id="modern-professional-overrides">
 /* ===== PsTally Modern Professional UI ===== */
@@ -255,7 +255,17 @@ function svgl(n,i,a){return '<a tabindex="0" '+a+'>'+svg(i)+n+'</a>'}
 function stats(){var p=st.per||'today',x=revenueStats(p),labels={today:"Today's revenue",yest:"Yesterday's revenue",week:"This week's revenue"};$('debt').textContent=f(DB.debts.filter(function(r){return r.status=='Unpaid'}).reduce(function(a,r){return a+(+r.amount||0)},0));$('rl').textContent=labels[p]||labels.today;$('rv').textContent=f(x.rev);$('ss').textContent=x.s;$('sp').textContent=x.paid;$('co').textContent=f(x.co);$('cp').innerHTML=p=='today'&&cop()?'<a style="color:var(--warn);cursor:pointer" data-cash>'+cop()+' to review →</a>':'';$('cash').textContent=f(x.cash);$('mp').textContent=f(x.mp);var rows=x.rows;var prevStart=new Date(periodStart(p));prevStart.setDate(prevStart.getDate()-(p=='week'?7:1));var prevEnd=new Date(periodStart(p));var prev=0;rows.forEach(function(){});(DB.sessions||[]).forEach(function(r){var k=sessionDate(r);if(k){var d=new Date(k+'T00:00:00');if(d>=prevStart&&d<prevEnd)prev+=+r.amount||0}});var pct=prev?Math.round((x.rev-prev)/prev*100):0;$('dn').innerHTML='<span class="dn '+(pct<0?'':'up')+'" style="'+(pct>=0?'color:var(--green)':'')+'">'+(pct>=0?'↑ ':'↓ ')+Math.abs(pct)+'% <em>vs previous period</em></span>';$('pace').innerHTML=p=='today'?'On pace for ~ <b>Ksh '+f(Math.max(0,Math.round(x.rev*1.86/50)*50))+'</b> · '+remainingToday()+' remaining in 24h day':(p=='yest'?'Completed yesterday · <b>Ksh '+f(x.rev)+'</b>':'This week · <b>Ksh '+f(x.rev)+'</b>');V.splice(0,V.length);lastSevenDays().forEach(function(v){V.push(v)});$('avg').textContent=f(Math.round(V.reduce(function(a,b){return a+b},0)/7));$('bars').innerHTML=V.map(function(v,i){var sel=(p=='week'&&i==6)||(p=='yest'&&i==5)||(p=='today'&&i==6);return '<div class="'+(sel?'sel ':'')+(i==6?'today':'')+'" data-v="'+(v/1000).toFixed(1)+'k" style="height:'+Math.max(8,v/78)+'%" title="Ksh '+f(v)+'"></div>'}).join('')}
 function billFor(b){return Math.max(st.rate,Math.ceil(elapsedSec(b)/1800)*st.rate)}
 function remainingToday(){var n=new Date();var start=new Date(n);start.setHours(0,0,0,0);var end=new Date(start);end.setDate(end.getDate()+1);var sec=Math.max(0,Math.floor((end-n)/1000));var h=Math.floor(sec/3600),m=Math.floor((sec%3600)/60),s=sec%60;return h+'h '+String(m).padStart(2,'0')+'m '+String(s).padStart(2,'0')+'s'}
-function bays(){var pl=0;$('bays').innerHTML=st.bays.map(function(b,i){var n=bayName(i),a=' tabindex="0" role="button" data-b="'+i+'"';if(b.s=='on'){pl++;var elapsed=elapsedSec(b),amt=billFor(b);return '<div class="bay on"'+a+'><b>'+n+'</b>'+b.g+'<small class="tm">'+dur(elapsed)+'</small><div class="bill">Ksh '+f(amt)+' accrued</div><div class="actions"><button data-bill="'+i+'">End & Bill</button><button data-time="'+i+'">+30 min</button></div></div>'}if(b.s=='un')return '<div class="bay un"'+a+'><b>'+n+'<i>UNBILLED</i></b><p>'+(b.det?b.det+' detected':'Console active')+'</p><div class="actions"><button data-bill="'+i+'">Log Session</button></div></div>';return '<div class="bay op"'+a+'><b>'+n+'</b>Open<div class="actions"><button data-start="'+i+'">Start Session</button></div></div>'}).join('');$('playing').textContent=pl+' playing'+(live?' · live':'')}
+function bayTotalMinutes(i){
+  var total=0;
+  (DB.sessions||[]).forEach(function(r){
+    var rn=String(r.bay||'').trim();
+    if(rn===bayName(i)) total+=Math.max(0,+r.minutes||0);
+  });
+  var b=st.bays[i];
+  if(b&&b.s=='on') total+=Math.floor(elapsedSec(b)/60);
+  return total;
+}
+function bays(){var pl=0;$('bays').innerHTML=st.bays.map(function(b,i){var n=bayName(i),a=' tabindex="0" role="button" data-b="'+i+'"',total=bayTotalMinutes(i);if(b.s=='on'){pl++;var elapsed=elapsedSec(b),amt=billFor(b);return '<div class="bay on"'+a+'><b>'+n+'</b>'+b.g+'<small class="tm">'+dur(elapsed)+'</small><small class="bay-total">Total played: '+dur(total*60)+'</small><div class="bill">Ksh '+f(amt)+' accrued</div><div class="actions"><button data-bill="'+i+'">End & Bill</button><button data-time="'+i+'">+30 min</button></div></div>'}if(b.s=='un')return '<div class="bay un"'+a+'><b>'+n+'<i>UNBILLED</i></b><p>'+(b.det?b.det+' detected':'Console active')+'</p><small class="bay-total">Total played: '+dur(total*60)+'</small><div class="actions"><button data-bill="'+i+'">Log Session</button></div></div>';return '<div class="bay op"'+a+'><b>'+n+'</b>Open<small class="bay-total">Total played: '+dur(total*60)+'</small><div class="actions"><button data-start="'+i+'">Start Session</button></div></div>'}).join('');$('playing').textContent=pl+' playing'+(live?' · live':'')}
 function attn(){var un=[],on=0,bl=0;st.bays.forEach(function(b,i){if(b.s!='op')on++;if(b.s=='on')bl++;if(b.s=='un')un.push(i)});var rows=[];
 if(un.length)rows.push(['<span>'+un.length+' PS5 on with no session logged</span>','<a tabindex="0" data-inv>Investigate →</a>']);
 if(st.fl.length)rows.push([st.fl.length+' session'+(st.fl.length>1?'s':'')+' flagged as unusual','<a tabindex="0" data-fl>Review →</a>']);
@@ -328,8 +338,14 @@ setInterval(function(){
   document.querySelectorAll('#monitoring .tw tbody tr').forEach(function(row){
     var txt=row.cells&&row.cells[0]?row.cells[0].textContent.trim():'';
     var idx=st.bays.findIndex(function(b){return bayName(st.bays.indexOf(b))==txt});
-    if(idx>=0&&st.bays[idx].s=='on'&&row.cells[3])row.cells[3].textContent=dur(elapsedSec(st.bays[idx]));
+    if(idx>=0){
+      if(row.cells[3])row.cells[3].textContent=st.bays[idx].s=='on'?dur(elapsedSec(st.bays[idx])):'—';
+      if(row.cells[4])row.cells[4].textContent=dur(bayTotalMinutes(idx)*60);
+      if(row.cells[2])row.cells[2].textContent=st.bays[idx].g||'—';
+      if(row.cells[1])row.cells[1].innerHTML='<span class="pill '+(st.bays[idx].s=='on'?'g':st.bays[idx].s=='un'?'w':'')+'">'+(st.bays[idx].s=='on'?'Playing':st.bays[idx].s=='un'?'Unbilled':'Open')+'</span>';
+    }
   });
+  document.querySelectorAll('.bay').forEach(function(card,k){var i=Array.prototype.indexOf.call(card.parentNode.children,card);var el=card.querySelector('.bay-total');if(el&&st.bays[i])el.textContent='Total played: '+dur(bayTotalMinutes(i)*60);});
   if(cur=='dash'){var p=st.per;if(p=='today'){$('pace').innerHTML='On pace for ~ <b>Ksh '+f(Math.max(0,Math.round((revenueStats('today').rev||0)*1.86/50)*50))+'</b> · '+remainingToday()+' remaining in 24h day';}}
 },1000);
 setInterval(refreshDashboardDate,1000);
@@ -419,7 +435,7 @@ debts:{t:'Debts',s:'Customers who played on credit.',one:'debt',d:{status:'Unpai
 expenses:{t:'Expenses',s:'What you spend to keep the lounge running.',one:'expense',sum:['amount','Total spent'],c:[['item','Expense'],['amount','Amount','m'],['date','Date']],f:[['item','What was it for'],['amount','Amount (Ksh)','n'],['date','Date','d']]},
 income:{t:'Income',s:'Money earned outside gaming sessions.',one:'income entry',sum:['amount','Total earned'],c:[['source','Source'],['amount','Amount','m'],['date','Date']],f:[['source','Where it came from'],['amount','Amount (Ksh)','n'],['date','Date','d']]},
 tournaments:{t:'Tournaments',s:'Events that bring players in.',one:'tournament',c:[['name','Tournament'],['game','Game'],['fee','Entry fee','m'],['date','Date']],f:[['name','Tournament name'],['game','Game',function(){return DB.games.map(function(x){return x.title})}],['fee','Entry fee (Ksh)','n'],['date','Date','d']]},
-monitoring:{t:'Monitoring',s:'Live view of every bay.',ro:1,c:[['bay','Bay'],['status','Status'],['game','Game'],['time','Time played']],rows:function(){return st.bays.map(function(b,i){return {bay:bayName(i),status:b.s=='on'?'Playing':b.s=='un'?'Unbilled':'Open',game:b.g||'—',time:b.s=='on'?dur(b.t):'—'}})}}};
+monitoring:{t:'Monitoring',s:'Live view of every bay. Current session time updates every second; total played is the sum of recorded sessions plus the current session.',ro:1,c:[['bay','Bay'],['status','Status'],['game','Game'],['time','Current time'],['total','Total played']],rows:function(){return st.bays.map(function(b,i){return {bay:bayName(i),status:b.s=='on'?'Playing':b.s=='un'?'Unbilled':'Open',game:b.g||'—',time:b.s=='on'?dur(elapsedSec(b)):'—',total:dur(bayTotalMinutes(i)*60)}})}}};
 var PC={Open:'g',Approved:'g',Paid:'g',Playing:'g',Pending:'w',Unpaid:'w',Unbilled:'w',Declined:'r'};
 function shiftBox(){rollToToday();$('dt').textContent=displayDate()+' · '+st.lounge;$('sh').innerHTML=DB.shifts.filter(open_).map(function(s){return '<div class="it"><div><b>'+s.staff+'</b><p>'+s.sessions+' sessions · since '+s.start+'</p></div><div class="r"><b>'+M(s.collected)+'</b><p>COLLECTED</p></div></div>'}).join('')||'<div class="it"><p>No one is on shift. Open one in Shifts.</p></div>'}
 function hd(g,add){return '<div class="ph"><div><h1>'+g.t+'</h1><p>'+g.s+'</p></div>'+(add?'<button class="btn pri" data-add="'+add+'">Add '+g.one+'</button>':'')+'</div>'}
