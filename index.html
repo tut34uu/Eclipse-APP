@@ -432,7 +432,40 @@ function reports(){var rv=V.reduce(function(a,b){return a+b},0),ex=S('expenses',
 function page(k){if(k=='history')return reports();if(G[k])return table(k);if(k=='reports')return reports();
 if(k=='refer')return '<div class="ph"><div><h1>Refer &amp; Earn</h1><p>Share your code with other lounge owners.</p></div></div><div class="card cfg"><div class="lbl">Your referral code</div><div class="big"><span style="font-size:28px;font-family:\'JetBrains Mono\',monospace">PSTALLY-7K2</span></div><button class="btn pri" style="margin-top:16px" data-copy>Copy code</button></div>';
 return '<div class="ph"><div><h1>Settings</h1><p>Your lounge details, billing rate, and PS5 monitoring.</p></div></div><div class="card cfg"><label>Lounge name<input id="cn" value="'+st.lounge+'"></label><label>Rate per 30 minutes (Ksh)<input id="cr" type="number" min="10" value="'+st.rate+'"></label><button class="btn pri" style="margin-top:16px" data-cfg>Save settings</button><button class="btn" style="margin:16px 0 0 8px" data-reset>Reset demo data</button></div><div class="card cfg" style="margin-top:16px;max-width:720px"><div class="lbl">BAY NAMES</div><p style="color:var(--mute);font-size:12px;margin:6px 0 4px">Give each bay a personalized name. These names will appear on the dashboard, payment history, and monitoring.</p><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">'+[1,2,3,4,5,6].map(function(n){return '<label>Bay '+n+'<input id="bn'+n+'" value="'+esc((st.bays[n-1]||{}).name||'Bay '+n)+'" placeholder="Bay '+n+'"></label>'}).join('')+'</div><button class="btn pri" style="margin-top:16px" data-baynames>Save bay names</button></div><div class="card cfg" style="margin-top:16px;max-width:520px"><div class="lbl">CO-OPERATIVE BANK M-PESA PAYBILL</div><div class="payinfo"><div class="row"><span>Paybill</span><b>400200</b></div><div class="row"><span>Account number</span><b>1176262</b></div></div></div><div class="card cfg" style="margin-top:16px;max-width:720px"><div class="lbl">PS5 GAME DETECTION</div><p style="color:var(--mute);font-size:12px;margin:6px 0 0">PsTally can read the current PSN “Now Playing” title through the local PS5 Monitor service. Keep the monitor running on the lounge PC. Each bay should use its own PSN account for reliable bay-to-console mapping.</p><div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><span class="pill '+(live?'g':'w')+'">'+(live?'Monitor connected':'Monitor not connected')+'</span><span class="pill">'+(lastP[1]||lastP[2]||lastP[3]?'Presence received':'Waiting for presence')+'</span></div><p style="color:var(--mute);font-size:11px;margin-top:12px">PSN credentials belong on the backend in <b>.env</b>; never paste NPSSO tokens into this dashboard.</p></div>'+(live?acct():'')}
-function go(k){cur=k;var d=k=='dash';document.querySelector('.wrap').hidden=!d;$('pg').hidden=d;if(!d)$('pg').innerHTML=page(k);nav();document.querySelector('main').scrollTop=0}
+var pinUnlocked=false;
+var pinBusy=false;
+var PIN_PROTECTED={reports:1,shifts:1,monitoring:1,consoles:1,games:1,products:1,staff:1,tournaments:1,cashouts:1,debts:1,expenses:1,income:1,refer:1,settings:1,history:1};
+function pinDialog(k){
+  return new Promise(function(resolve){
+    var old=$('dlg').innerHTML;
+    dlg('<h3>🔐 Protected Area</h3><p>Enter the 4-digit PsTally PIN to continue.</p><input id=pinInput type=password inputmode=numeric maxlength=4 autocomplete=one-time-code style=font-size:28px;letter-spacing:8px;text-align:center><p id=pinErr style=display:none;color:var(--bad)>Incorrect PIN. Please try again.</p><button class=pri data-pin-ok>Unlock</button><button class=cx data-pin-cancel>Cancel</button>');
+    setTimeout(function(){var i=$('pinInput');if(i)i.focus()},50);
+    function finish(v){close();$('dlg').innerHTML=old;resolve(v)}
+    var handler=function(e){var t=e.target;if(t&&t.matches('[data-pin-cancel]')){document.removeEventListener('click',handler,true);finish(false)}if(t&&t.matches('[data-pin-ok]')){document.removeEventListener('click',handler,true);check()}if(t&&t.id=='pinInput'&&e.key=='Enter'){e.preventDefault();check()}};
+    async function check(){
+      if(pinBusy)return;
+      var v=($('pinInput')||{}).value||'';
+      if(!/^\d{4}$/.test(v)){var er=$('pinErr');if(er){er.textContent='Enter exactly 4 digits.';er.style.display='block'}return}
+      pinBusy=true;
+      try{
+        if(!currentUser)throw new Error('Please sign in first.');
+        var r=await sb.rpc('verify_app_pin',{entered_pin:v});
+        if(r.error)throw r.error;
+        if(r.data===true){pinUnlocked=true;document.removeEventListener('click',handler,true);finish(true);return}
+        var er=$('pinErr');if(er){er.textContent='Incorrect PIN. Please try again.';er.style.display='block'}
+      }catch(e){var er=$('pinErr');if(er){er.textContent='PIN verification failed. Please try again.';er.style.display='block'}console.warn('PIN verification:',e)}
+      finally{pinBusy=false}
+    }
+    document.addEventListener('click',handler,true);
+  })
+}
+async function go(k){
+  if(PIN_PROTECTED[k]&&!pinUnlocked){
+    var ok=await pinDialog(k);
+    if(!ok)return;
+  }
+  cur=k;var d=k=='dash';document.querySelector('.wrap').hidden=!d;$('pg').hidden=d;if(!d)$('pg').innerHTML=page(k);nav();document.querySelector('main').scrollTop=0
+}
 function form(k){var g=G[k];dlg('<h3>Add '+g.one+'</h3><p>'+g.t+'</p>'+g.f.map(function(x){var o=typeof x[2]=='function'?x[2]():x[2],id='f_'+x[0];return '<label>'+x[1]+(Array.isArray(o)?'<select id="'+id+'">'+o.map(function(v){return '<option>'+v+'</option>'}).join('')+'</select>':'<input id="'+id+'" type="'+(o=='n'?'number':o=='d'?'date':o=='t'?'time':'text')+'"'+(o=='n'?' min="0"':'')+'>')+'</label>'}).join('')+'<button class="pri" data-save="'+k+'">Save</button><button class="cx" data-x>Cancel</button>')}
 async function save1(k){var g=G[k],r=Object.assign({},g.d||{}),ok=1;g.f.forEach(function(x){var v=$('f_'+x[0]).value.trim();if(v==='')ok=0;r[x[0]]=x[2]=='n'?+v:v});if(!ok){toast('Fill in every field');return}r.id=crypto.randomUUID?crypto.randomUUID():(Date.now().toString(36)+Math.random().toString(36).slice(2));if(k=='shifts')r.started_at=new Date().toISOString();DB[k].push(r);if(currentUser&&k=='expenses'){var ex=await sb.from('expenses').insert({description:r.item,amount:r.amount,expense_date:r.date||localDateKey(),created_by:currentUser.id});if(ex.error)toast('Saved locally; cloud sync failed');}if(currentUser&&k=='cashouts'){var co=await sb.from('cashouts').insert({who:r.who||'Staff',amount:r.amount,reason:r.reason||'',status:r.status||'Pending',cashout_at:new Date().toISOString(),created_by:currentUser.id});if(co.error)toast('Saved locally; cloud sync failed');}if(currentUser&&CLOUD_TABLES.indexOf(k)>=0){var cr=await sb.from(k).upsert(rowForCloud(k,r),{onConflict:'id'});if(cr.error)toast('Saved locally; cloud sync failed');}close();all();go(k);toast('Added '+g.one)}
 var live=0,pf=1,cfgB={},lastP={};
