@@ -281,7 +281,23 @@ if(x=q('data-act')){var a=x.dataset.act.split(','),ak=a[0],ar=DB[ak][+a[1]];G[ak
 if(x=q('data-pin-submit')){var target=x.dataset.pinSubmit,pin=($('appPin')&&$('appPin').value||'').trim();if(!/^\d{4}$/.test(pin)){if($('pinMsg'))$('pinMsg').textContent='Enter exactly 4 digits.';return}(async function(){try{var r=await sb.rpc('verify_app_pin',{entered_pin:pin});if(r.error)throw r.error;if(r.data===true){pinUnlocked=true;pinBusy=false;close();go(target)}else{if($('pinMsg'))$('pinMsg').textContent='Incorrect PIN.'}}catch(e){if($('pinMsg'))$('pinMsg').textContent='PIN verification failed.';console.warn(e)}})();return}
 if(q('data-copy')){try{navigator.clipboard.writeText('PSTALLY-7K2')}catch(_){}toast('Referral code copied');return}
 if(q('data-baynames')){for(var bn=1;bn<=6;bn++){var nv=($('bn'+bn)&&$('bn'+bn).value.trim())||'Bay '+bn;st.bays[bn-1].name=nv;}DB.consoles.forEach(function(c,i){if(st.bays[i])c.bay=bayName(i)});all();if(currentUser){syncBays().then(function(){toast('Bay names saved to cloud')}).catch(function(e){console.warn(e);toast('Bay names saved locally; cloud save failed')});}else toast('Bay names saved');return}
-if(q('data-cfg')){st.lounge=$('cn').value.trim()||'Demo Lounge';st.rate=Math.max(10,+$('cr').value||100);all();toast('Settings saved');return}
+if(q('data-cfg')){
+  st.lounge=$('cn').value.trim()||'Demo Lounge';
+  st.rate=Math.max(10,+$('cr').value||100);
+  all();
+  if(currentUser){
+    (async function(){
+      try{
+        var r=await sb.from('business_settings').upsert({id:1,business_name:st.lounge,coop_paybill:'400200',coop_account:'1176262',updated_at:new Date().toISOString()},{onConflict:'id'});
+        if(r.error)throw r.error;
+        var a=await sb.from('app_state').upsert({id:1,state:{st:st,DB:DB},updated_at:new Date().toISOString()},{onConflict:'id'});
+        if(a.error)throw a.error;
+        all();toast('Settings saved to cloud');
+      }catch(e){console.error('Settings cloud save:',e);toast('Settings saved locally; cloud save failed')}
+    })();
+  }else toast('Settings saved');
+  return
+}
 if(q('data-out')){if(live)location.href='logout';else toast('The demo has no sign-in');return}
 if(q('data-bays')){var bb={};[1,2,3,4,5,6].forEach(function(n){var v=$('ba'+n).value.trim();if(v)bb[n]=v});fetch('api/config',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({bays:bb})}).then(function(r){return r.json().then(function(j){if(!r.ok)throw j;return j})}).then(function(j){cfgB=j.bays;toast('Accounts saved. Checking consoles…')}).catch(function(j){toast(j&&j.error||'Could not save')});return}
 if(q('data-reset')){if(!currentUser){toast('Sign in first to reset cloud sales');return}if(!confirm('Reset all test sales/transactions and related local totals? This cannot be undone. Bay names, games, staff, products and settings will stay.'))return;(async function(){try{var r=await sb.from('transactions').delete().not('id','is',null);if(r.error)throw r.error;DB.sessions=[];st.rev=0;st.sess=0;st.cash=0;st.mp=0;st.co=0;st.cop=0;V=[0,0,0,0,0,0,0];await sb.from('app_state').upsert({id:1,state:{st:st,DB:DB},updated_at:new Date().toISOString()},{onConflict:'id'});all();go('settings');toast('Sales data reset to zero');}catch(e){console.error(e);toast('Reset failed: '+(e.message||e))}})();return}
@@ -361,8 +377,20 @@ async function loadDedicated(){
   var ex=await sb.from('expenses').select('*').order('expense_date',{ascending:false});if(ex.data)DB.expenses=ex.data.map(function(x){return {id:x.id,item:x.description,amount:+x.amount||0,date:x.expense_date}});
   var co=await sb.from('cashouts').select('*').order('cashout_at',{ascending:false});if(co.data)DB.cashouts=co.data.map(function(x){return {id:x.id,who:x.who||'Staff',amount:+x.amount||0,reason:x.reason||'',status:x.status||'Pending',id:x.id}});
 }
-async function loadCloud(){if(!currentUser)return;cloudReady=false;try{var state=await sb.from('app_state').select('state').eq('id',1).maybeSingle();if(state.data&&state.data.state){Object.assign(st,state.data.state.st||{});Object.assign(DB,state.data.state.DB||{});st.per='today';hydrateBayTimers();ensureIds();}await loadDedicated();if(!bayIds.length)await syncBays();var set=await sb.from('business_settings').select('*').eq('id',1).single();if(set.data)st.lounge=set.data.business_name||st.lounge;}catch(e){console.warn('Cloud load:',e)}cloudReady=true;all();subscribeRealtime();}
-function subscribeRealtime(){if(!currentUser||window.psTallyChannel)return;window.psTallyChannel=sb.channel('pstally-live').on('postgres_changes',{event:'*',schema:'public',table:'bays'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'transactions'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'games'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'consoles'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'staff'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'shifts'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'debts'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'products'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'income'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'tournaments'},function(){refreshDedicated()}).subscribe();}
+async function loadBusinessSettings(){
+  if(!currentUser)return;
+  try{
+    var r=await sb.from('business_settings').select('id,business_name,coop_paybill,coop_account,updated_at').eq('id',1).maybeSingle();
+    if(r.error)throw r.error;
+    if(r.data){
+      st.lounge=r.data.business_name||st.lounge||'Demo Lounge';
+      st.coopPaybill=r.data.coop_paybill||'400200';
+      st.coopAccount=r.data.coop_account||'1176262';
+    }
+  }catch(e){console.warn('Business settings load:',e)}
+}
+async function loadCloud(){if(!currentUser)return;cloudReady=false;try{var state=await sb.from('app_state').select('state').eq('id',1).maybeSingle();if(state.data&&state.data.state){Object.assign(st,state.data.state.st||{});Object.assign(DB,state.data.state.DB||{});st.per='today';hydrateBayTimers();ensureIds();}await loadDedicated();if(!bayIds.length)await syncBays();await loadBusinessSettings();}catch(e){console.warn('Cloud load:',e)}cloudReady=true;all();subscribeRealtime();}
+function subscribeRealtime(){if(!currentUser||window.psTallyChannel)return;window.psTallyChannel=sb.channel('pstally-live').on('postgres_changes',{event:'*',schema:'public',table:'bays'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'transactions'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'games'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'consoles'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'staff'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'shifts'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'debts'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'products'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'income'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'tournaments'},function(){refreshDedicated()}).on('postgres_changes',{event:'*',schema:'public',table:'business_settings'},async function(){await loadBusinessSettings();all();}).on('postgres_changes',{event:'*',schema:'public',table:'app_state'},async function(payload){try{var z=payload&&payload.new&&payload.new.state;if(z&&z.st){if(z.st.lounge)st.lounge=z.st.lounge;if(z.st.rate!=null)st.rate=+z.st.rate||st.rate;all();}}catch(e){console.warn('Settings realtime:',e)}}).subscribe();}
 async function refreshDedicated(){if(!currentUser||cloudBusy)return;try{await loadDedicated();localStorage.setItem(K,JSON.stringify({st:st,DB:DB}));all();if(cur!='dash')go(cur)}catch(e){console.warn('Realtime refresh:',e)}}
 
 async function bootCloud(){
